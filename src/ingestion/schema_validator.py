@@ -1,1 +1,48 @@
-import pandas as pd\n\n\ndef validate_schema(df: pd.DataFrame, expected_schema: dict) -> bool:\n    """\n    Validate the schema of a DataFrame against an expected schema.\n\n    :param df: The DataFrame to validate.\n    :param expected_schema: A dictionary representing the expected column names and types.\n    :return: True if the DataFrame matches the expected schema, False otherwise.\n    """\n    for column, expected_type in expected_schema.items():\n        if column not in df.columns:\n            print(f"Missing column: {column}")\n            return False\n        if not pd.api.types.is_dtype_equal(df[column].dtype, expected_type):\n            print(f"Column '{column}' type mismatch: expected {expected_type}, got {df[column].dtype}")\n            return False\n    return True\n
+import pandas as pd
+
+def validate_schema(df, schema):
+    """
+    Validate a DataFrame against a schema.
+    
+    Args:
+        df (pd.DataFrame): DataFrame to validate
+        schema (dict): Dictionary mapping column names to expected data types
+        
+    Returns:
+        dict: Validation results with status and details
+    """
+    results = {
+        "valid": True,
+        "errors": [],
+        "warnings": []
+    }
+    
+    # Check if all schema columns exist in DataFrame
+    for col, dtype in schema.items():
+        if col not in df.columns:
+            results["valid"] = False
+            results["errors"].append(f"Missing column: {col}")
+        else:
+            # Check if column type matches expected type
+            expected_type = pd.api.types.pandas_dtype(dtype)
+            actual_type = df[col].dtype
+            
+            if actual_type != expected_type:
+                try:
+                    # Try to convert
+                    df[col] = df[col].astype(dtype)
+                    results["warnings"].append(f"Column '{col}': converted from {actual_type} to {dtype}")
+                except (ValueError, TypeError) as e:
+                    results["valid"] = False
+                    results["errors"].append(f"Column '{col}': cannot convert {actual_type} to {dtype} - {str(e)}")
+    
+    # Check for extra columns
+    extra_cols = set(df.columns) - set(schema.keys())
+    if extra_cols:
+        results["warnings"].append(f"Extra columns found: {extra_cols}")
+    
+    results["schema"] = schema
+    results["dataframe_shape"] = df.shape
+    results["dataframe_columns"] = list(df.columns)
+    
+    return results
